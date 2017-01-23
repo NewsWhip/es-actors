@@ -25,7 +25,7 @@ import scala.concurrent.duration._
 object Config {
   val defaultSourcePort = 9300
   val defaultTargetPort = 9300
-  val defaultRemotePort = 9087
+  val defaultRemotePort = 9088
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,

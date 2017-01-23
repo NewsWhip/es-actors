@@ -44,7 +44,6 @@ cd es-actors-$ES_ACTORS_VERSION/es-actors
 SERVER_CMD="sbt -J-Xmx20G -J-Xms20G \"; project server; run-main com.broilogabriel.Server\""
 eval $SERVER_CMD </dev/null &>/dev/null &
 chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
-/opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors NewsWhipCluster NewsWhipStagingCluster 10.0.9.14,10.0.1.15,10.0.7.15,10.0.9.15 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111 9300 8 >/dev/null 2>&1 &
 # next setup Spike -> Kibana
 cd /opt/elasticsearch-migration
 wget https://github.com/NewsWhip/es-actors/archive/v$ES_ACTORS_VERSION-kibana.tar.gz
