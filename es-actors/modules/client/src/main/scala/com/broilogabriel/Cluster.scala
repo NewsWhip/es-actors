@@ -1,25 +1,28 @@
 package com.broilogabriel
 
+import java.net.InetAddress
+
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.action.search.SearchType
 import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.common.settings.ImmutableSettings
+import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
+import org.elasticsearch.search.sort.SortOrder
+import org.elasticsearch.search.sort.SortParseElement
 
 object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
-    val settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster.name)
+    val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
       .put("client.transport.sniff", true).put("client.transport.ping_timeout", "60s").build()
-    val transportClient = new TransportClient(settings)
+    val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>
         logger.info(s"Client connecting to $address")
-        transportClient.addTransportAddress(new InetSocketTransportAddress(address, cluster.port))
+        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
     }
     transportClient
   }
@@ -31,7 +34,7 @@ object Cluster extends LazyLogging {
 
   def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
     cluster.prepareSearch(index)
-      .setSearchType(SearchType.SCAN)
+      .addSort(SortParseElement.DOC_FIELD_NAME, SortOrder.ASC)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .setQuery(QueryBuilders.matchAllQuery)
       .setSize(size)
