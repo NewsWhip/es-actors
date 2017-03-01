@@ -4,6 +4,7 @@ import java.net.InetAddress
 
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
+import org.elasticsearch.action.search.SearchType
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
@@ -34,7 +35,7 @@ object Cluster extends LazyLogging {
 
   def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
     cluster.prepareSearch(index)
-      .addSort(SortParseElement.DOC_FIELD_NAME, SortOrder.ASC)
+      .setSearchType(SearchType.SCAN)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .setQuery(QueryBuilders.matchAllQuery)
       .setSize(size)
