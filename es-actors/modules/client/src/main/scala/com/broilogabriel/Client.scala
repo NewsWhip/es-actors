@@ -10,6 +10,7 @@ import akka.actor.PoisonPill
 import akka.actor.Props
 import akka.pattern.ask
 import akka.util.Timeout
+import com.broilogabriel.Cluster.logger
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
@@ -164,6 +165,7 @@ class Client(config: Config) extends Actor with LazyLogging {
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
+    logger.info(s"Scroll request for index ${config.index} took ${scroll.getTookInMillis}")
     if (Cluster.checkIndex(cluster, config.index)) {
       val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
