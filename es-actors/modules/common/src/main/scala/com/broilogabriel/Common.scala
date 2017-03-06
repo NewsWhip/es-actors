@@ -8,7 +8,7 @@ object ClusterConfig {
   val scrollSize = 500
   val minutesAlive = 10
   val bulkActions = 1000
-  val bulkSizeMb = 1
+  val bulkSizeKb = 128
   val flushIntervalSec = 5
 }
 
