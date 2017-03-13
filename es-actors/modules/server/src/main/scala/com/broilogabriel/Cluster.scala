@@ -30,7 +30,7 @@ object Cluster extends LazyLogging {
   def getBulkProcessor(listener: BulkListener): Builder = {
     BulkProcessor.builder(listener.client, listener)
       .setBulkActions(ClusterConfig.bulkActions)
-      .setBulkSize(new ByteSizeValue(ClusterConfig.bulkSizeKb, ByteSizeUnit.KB))
+      .setBulkSize(new ByteSizeValue(ClusterConfig.bulkSizeMb, ByteSizeUnit.MB))
       .setFlushInterval(TimeValue.timeValueSeconds(ClusterConfig.flushIntervalSec))
   }
 

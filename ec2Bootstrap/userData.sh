@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=1.3.31
+ES_ACTORS_VERSION=1.3.32
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run
@@ -60,4 +60,6 @@ echo "45 0 * * * root /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-
 
 # Mark execution end
 echo "DONE" > /root/user_data_run
+
+sbt -J-Xmx25G -J-Xms25G "; project server; run-main com.broilogabriel.Server" </dev/null &>/dev/null &
 
