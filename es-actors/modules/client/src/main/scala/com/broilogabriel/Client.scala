@@ -164,7 +164,7 @@ class Client(config: Config) extends Actor with LazyLogging {
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
-    logger.info(s"Scroll request for index ${config.index} took ${scroll.getTookInMillis}")
+    logger.debug(s"Scroll request for index ${config.index} took ${scroll.getTookInMillis}")
     if (Cluster.checkIndex(cluster, config.index)) {
       val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
@@ -178,13 +178,13 @@ class Client(config: Config) extends Actor with LazyLogging {
   }
 
   override def postStop(): Unit = {
-    logger.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
+    logger.debug(s"${uuid.toString} - ${config.index} - Requested to stop.")
     cluster.close()
   }
 
   override def receive: Actor.Receive = {
     case MORE =>
-      logger.info(s"${sender.path.name} - requesting more")
+      logger.debug(s"${sender.path.name} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       if (hits.nonEmpty) {
         hits.foreach(hit => {
@@ -204,19 +204,19 @@ class Client(config: Config) extends Actor with LazyLogging {
           }
         })
         val totalSent = total.addAndGet(hits.length)
-        logger.info(s"${sender.path.name} - ${config.index} - ${
+        logger.debug(s"${sender.path.name} - ${config.index} - ${
           (totalSent * 100) / scroll.getHits
             .getTotalHits
         }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
       } else {
-        logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
+        logger.debug(s"${sender.path.name} - ${config.index} - Sending DONE")
         sender ! DONE
       }
 
     case uuidInc: UUID =>
       uuid = uuidInc
       val scrollId = scroll.getScrollId.substring(0, 10)
-      logger.info(
+      logger.debug(
         s"${sender.path.name} - ${config.index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
       )
       self.forward(MORE)

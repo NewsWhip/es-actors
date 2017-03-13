@@ -46,7 +46,7 @@ object Cluster extends LazyLogging {
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .execute()
       .actionGet()
-    logger.info(s"Scroll request for index $index took ${partial.getTookInMillis}")
+    logger.debug(s"Scroll request for index $index took ${partial.getTookInMillis}")
     partial.getHits.hits()
   }
 

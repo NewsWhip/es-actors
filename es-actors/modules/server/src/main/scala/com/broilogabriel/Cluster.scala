@@ -43,13 +43,13 @@ case class BulkListener(
   def client: TransportClient = transportClient
 
   override def beforeBulk(executionId: Long, request: BulkRequest): Unit = {
-    logger.info(s"${handler.path.name} Before: $executionId | Size: " +
+    logger.debug(s"${handler.path.name} Before: $executionId | Size: " +
       s"${new ByteSizeValue(request.estimatedSizeInBytes()).getMb} " +
       s"| actions - ${request.numberOfActions()}")
   }
 
   override def afterBulk(executionId: Long, request: BulkRequest, response: BulkResponse): Unit = {
-    logger.info(s"${handler.path.name} After: $executionId | Size: " +
+    logger.debug(s"${handler.path.name} After: $executionId | Size: " +
       s"${new ByteSizeValue(request.estimatedSizeInBytes()).getMb} " +
       s"| took - ${response.getTook}")
     handler ! request.numberOfActions()
