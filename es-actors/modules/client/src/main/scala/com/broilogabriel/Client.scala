@@ -4,23 +4,23 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.Actor
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.{ Actor, ActorSystem, PoisonPill, Props }
+import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
-import org.joda.time.DateTime
-import org.joda.time.DateTimeConstants
+import org.joda.time.{ DateTime, DateTimeConstants }
 import scopt.OptionParser
+import spray.can.Http
+import spray.client.pipelining._
+import spray.http.HttpResponse
 
 import scala.annotation.tailrec
-import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.concurrent.{ Await, Future }
 
 object Config {
   val defaultSourcePort = 9300
@@ -29,12 +29,12 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer") {
+  sourceAddresses: Seq[String] = Seq("localhost"),
+  sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+  targetAddresses: Seq[String] = Seq("localhost"),
+  targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+  remoteName: String = "RemoteServer") {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -92,8 +92,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -158,6 +158,13 @@ class Client(config: Config) extends Actor with LazyLogging {
   var cluster: TransportClient = _
   var uuid: UUID = _
   val total: AtomicLong = new AtomicLong()
+  val wsPort = 18000
+
+  val pipeline: Future[SendReceive] =
+    for (
+      Http.HostConnectorInfo(connector, _) <-
+      IO(Http) ? Http.HostConnectorSetup("localhost", port = wsPort)
+    ) yield sendReceive(connector)
 
   implicit val timeout = Timeout(120.seconds)
 
@@ -189,6 +196,9 @@ class Client(config: Config) extends Actor with LazyLogging {
       if (hits.nonEmpty) {
         hits.foreach(hit => {
           val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
+
+          val response: Future[HttpResponse] = pipeline.flatMap(_ (Post("/article", hit.getSourceAsString)))
+
           try {
             val serverResponse = Await.result(sender ? data, timeout.duration)
             if (data.hitId != serverResponse) {

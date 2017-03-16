@@ -28,7 +28,8 @@ lazy val client = project.from("client")
     mainClass in(Compile, run) := Some("com.broilogabriel.Client"),
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := Settings.defaultOrg,
-    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
+    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1",
+    libraryDependencies += "io.spray" %% "spray-client" % "1.3.4"
   )
 
 lazy val server = project.from("server")
