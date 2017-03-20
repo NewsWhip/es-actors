@@ -4,16 +4,12 @@ import java.net.InetAddress
 
 import akka.actor.ActorRef
 import com.typesafe.scalalogging.LazyLogging
-import org.elasticsearch.action.bulk.BulkProcessor
 import org.elasticsearch.action.bulk.BulkProcessor.Builder
-import org.elasticsearch.action.bulk.BulkRequest
-import org.elasticsearch.action.bulk.BulkResponse
+import org.elasticsearch.action.bulk.{ BulkProcessor, BulkRequest, BulkResponse }
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.common.unit.ByteSizeUnit
-import org.elasticsearch.common.unit.ByteSizeValue
-import org.elasticsearch.common.unit.TimeValue
+import org.elasticsearch.common.unit.{ ByteSizeUnit, ByteSizeValue, TimeValue }
 
 object Cluster extends LazyLogging {
 
@@ -24,7 +20,9 @@ object Cluster extends LazyLogging {
     cluster.addresses foreach {
       (address: String) =>
         logger.info(s"Server connecting to $address")
-        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+        transportClient.addTransportAddress(
+          new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port)
+        )
     }
     transportClient
   }
@@ -38,9 +36,8 @@ object Cluster extends LazyLogging {
 
 }
 
-case class BulkListener(
-    transportClient: TransportClient, handler: ActorRef
-) extends BulkProcessor.Listener with LazyLogging {
+case class BulkListener(transportClient: TransportClient, handler: ActorRef) extends BulkProcessor.Listener
+    with LazyLogging {
 
   def client: TransportClient = transportClient
 

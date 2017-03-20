@@ -5,7 +5,6 @@ import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.{ Actor, ActorSystem, PoisonPill, Props }
-import akka.io.IO
 import akka.pattern.ask
 import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
@@ -14,13 +13,14 @@ import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.joda.time.{ DateTime, DateTimeConstants }
 import scopt.OptionParser
-import spray.can.Http
 import spray.client.pipelining._
-import spray.http.HttpResponse
+import spray.http.{ HttpCharsets, HttpEntity, HttpRequest, HttpResponse, MediaTypes, Uri }
 
 import scala.annotation.tailrec
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
+import scala.util.{ Failure, Success }
 
 object Config {
   val defaultSourcePort = 9300
@@ -55,7 +55,7 @@ object Client extends LazyLogging {
       val startDate = DateTime.parse(date).minusWeeks(weeks).withDayOfWeek(DateTimeConstants.SUNDAY)
       indicesByRange(startDate.toString, date, validate = validate)
     } catch {
-      case e: IllegalArgumentException => None
+      case _: IllegalArgumentException => None
     }
   }
 
@@ -152,6 +152,32 @@ object Client extends LazyLogging {
 
 }
 
+class WebClient(implicit system: ActorSystem) extends LazyLogging {
+
+  val logRequest: HttpRequest => HttpRequest = { r => logger.debug(r.toString); r }
+  val logResponse: HttpResponse => HttpResponse = { r => logger.debug(r.toString); r }
+
+  // create a function from HttpRequest to a Future of HttpResponse
+  val pipeline: HttpRequest => Future[HttpResponse] = logRequest ~> sendReceive ~> logResponse
+
+  // create a function to send a GET request and receive a string response
+  def post(path: String, json: String, params: Map[String, String]): Future[String] = {
+    val uri = Uri("http://localhost:18000/article").withQuery(params)
+    // TODO: @broilogabriel check if charset will work
+    val request = Post(uri, HttpEntity(MediaTypes.`application/json`.withCharset(HttpCharsets.`UTF-8`), json))
+    val futureResponse = pipeline(request)
+    futureResponse.onComplete {
+      case Success(resp) => logger.info(s"Success ${resp.status}")
+      case Failure(f) => logger.error("Failure ", f)
+    }
+    Future("Done")
+    //    .map {
+    //      response =>
+    //        response.entity.asString
+    //    }
+  }
+}
+
 class Client(config: Config) extends Actor with LazyLogging {
 
   var scroll: SearchResponse = _
@@ -159,12 +185,9 @@ class Client(config: Config) extends Actor with LazyLogging {
   var uuid: UUID = _
   val total: AtomicLong = new AtomicLong()
   val wsPort = 18000
+  val slide = 100
 
-  val pipeline: Future[SendReceive] =
-    for (
-      Http.HostConnectorInfo(connector, _) <-
-      IO(Http) ? Http.HostConnectorSetup("localhost", port = wsPort)
-    ) yield sendReceive(connector)
+  val restServiceClient = new WebClient()(context.system)
 
   implicit val timeout = Timeout(120.seconds)
 
@@ -189,16 +212,22 @@ class Client(config: Config) extends Actor with LazyLogging {
     cluster.close()
   }
 
+  // restServiceClient.post("", sublist.getSourceAsString, Map())
+  // hits.sliding(slide)
+
   override def receive: Actor.Receive = {
     case MORE =>
       logger.debug(s"${sender.path.name} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       if (hits.nonEmpty) {
+        hits.sliding(slide).foreach(sublist => {
+          logger.info(s"sublist size - ${sublist.size}")
+          restServiceClient.post("", sublist.map(_.getSourceAsString).mkString("[", ",", "]"), Map())
+          logger.info(s"After sent?")
+          //          sublist
+        }) // .flatMap(_)
         hits.foreach(hit => {
           val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
-
-          val response: Future[HttpResponse] = pipeline.flatMap(_ (Post("/article", hit.getSourceAsString)))
-
           try {
             val serverResponse = Await.result(sender ? data, timeout.duration)
             if (data.hitId != serverResponse) {

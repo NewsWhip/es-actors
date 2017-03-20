@@ -10,8 +10,7 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.common.unit.TimeValue
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.SearchHit
-import org.elasticsearch.search.sort.SortOrder
-import org.elasticsearch.search.sort.SortParseElement
+import org.elasticsearch.search.sort.{ SortOrder, SortParseElement }
 
 object Cluster extends LazyLogging {
 
@@ -48,7 +47,9 @@ object Cluster extends LazyLogging {
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .execute()
       .actionGet()
-    logger.debug(s"Getting scroll for index ${index} took ${partial.getTookInMillis}ms")
+    logger.debug(s"Getting scroll for index $index took ${partial.getTookInMillis}ms - total ${
+      partial.getHits.getTotalHits
+    }")
     partial.getHits.hits()
   }
 

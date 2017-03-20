@@ -10,7 +10,7 @@ import akka.actor.PoisonPill
 import akka.actor.Props
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.bulk.BulkProcessor
-import org.elasticsearch.action.index.IndexRequest
+//import org.elasticsearch.action.index.IndexRequest
 
 object Server extends App with LazyLogging {
   logger.info(s"${BuildInfo.name} - ${BuildInfo.version}")
@@ -59,9 +59,9 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
       sender ! uuid
 
     case to: TransferObject =>
-      val indexRequest = new IndexRequest(to.index, to.hitType, to.hitId)
-      indexRequest.source(to.source)
-      bulkProcessor.add(indexRequest)
+      //      val indexRequest = new IndexRequest(to.index, to.hitType, to.hitId)
+      //      indexRequest.source(to.source)
+      //      bulkProcessor.add(indexRequest)
       sender ! to.hitId
 
     case DONE =>

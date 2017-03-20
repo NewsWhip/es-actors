@@ -29,8 +29,10 @@ lazy val client = project.from("client")
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := Settings.defaultOrg,
     libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1",
-    libraryDependencies += "io.spray" %% "spray-client" % "1.3.4"
+    libraryDependencies += "io.spray" %% "spray-client" % "1.3.4",
+    libraryDependencies += "io.spray" %% "spray-json" % "1.3.3"
   )
+
 
 lazy val server = project.from("server")
   .setName("server")
