@@ -20,7 +20,6 @@ import scala.annotation.tailrec
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
-import scala.util.{ Failure, Success }
 
 object Config {
   val defaultSourcePort = 9300
@@ -29,12 +28,12 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-  sourceAddresses: Seq[String] = Seq("localhost"),
-  sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-  targetAddresses: Seq[String] = Seq("localhost"),
-  targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-  remoteName: String = "RemoteServer") {
+    sourceAddresses: Seq[String] = Seq("localhost"),
+    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+    targetAddresses: Seq[String] = Seq("localhost"),
+    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+    remoteName: String = "RemoteServer") {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -92,8 +91,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -166,15 +165,12 @@ class WebClient(implicit system: ActorSystem) extends LazyLogging {
     // TODO: @broilogabriel check if charset will work
     val request = Post(uri, HttpEntity(MediaTypes.`application/json`.withCharset(HttpCharsets.`UTF-8`), json))
     val futureResponse = pipeline(request)
-    futureResponse.onComplete {
-      case Success(resp) => logger.info(s"Success ${resp.status}")
-      case Failure(f) => logger.error("Failure ", f)
-    }
-    Future("Done")
-    //    .map {
-    //      response =>
-    //        response.entity.asString
-    //    }
+    futureResponse.map(
+      resp => {
+        logger.info(s"Success ${resp.status.isSuccess}")
+        resp.entity.asString
+      }
+    )
   }
 }
 
@@ -212,9 +208,6 @@ class Client(config: Config) extends Actor with LazyLogging {
     cluster.close()
   }
 
-  // restServiceClient.post("", sublist.getSourceAsString, Map())
-  // hits.sliding(slide)
-
   override def receive: Actor.Receive = {
     case MORE =>
       logger.debug(s"${sender.path.name} - requesting more")
@@ -224,8 +217,7 @@ class Client(config: Config) extends Actor with LazyLogging {
           logger.info(s"sublist size - ${sublist.size}")
           restServiceClient.post("", sublist.map(_.getSourceAsString).mkString("[", ",", "]"), Map())
           logger.info(s"After sent?")
-          //          sublist
-        }) // .flatMap(_)
+        })
         hits.foreach(hit => {
           val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
           try {
