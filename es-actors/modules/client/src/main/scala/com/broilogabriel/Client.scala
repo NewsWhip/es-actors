@@ -22,16 +22,15 @@ import scala.concurrent.duration._
 import scala.concurrent.{ Await, Future }
 
 object Config {
-  val defaultSourcePort = 9300
-  val defaultTargetPort = 9300
+  val defaultPort = 9300
   val defaultRemotePort = 9087
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
     sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+    sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
     targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+    targetPort: Int = Config.defaultPort, targetCluster: String = "",
     remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
     remoteName: String = "RemoteServer") {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
@@ -97,14 +96,14 @@ object Client extends LazyLogging {
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
     opt[Int]('p', "sourcePort").valueName("<source_port>")
-      .action((x, c) => c.copy(sourcePort = x)).text("default value 9300")
+      .action((x, c) => c.copy(sourcePort = x)).text(s"default value ${Config.defaultPort}")
     opt[String]('c', "sourceCluster").required().valueName("<source_cluster>")
       .action((x, c) => c.copy(sourceCluster = x))
 
     opt[Seq[String]]('t', "targets").valueName("<target_address1>,<target_address2>...")
       .action((x, c) => c.copy(targetAddresses = x)).text("default value 'localhost'")
     opt[Int]('r', "targetPort").valueName("<target_port>")
-      .action((x, c) => c.copy(targetPort = x)).text("default value 9301")
+      .action((x, c) => c.copy(targetPort = x)).text(s"default value ${Config.defaultPort}")
     opt[String]('u', "targetCluster").required().valueName("<target_cluster>")
       .action((x, c) => c.copy(targetCluster = x))
 
@@ -214,7 +213,7 @@ class Client(config: Config) extends Actor with LazyLogging {
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       if (hits.nonEmpty) {
         hits.sliding(slide).foreach(sublist => {
-          logger.info(s"sublist size - ${sublist.size}")
+          logger.info(s"sublist size - ${sublist.length}")
           restServiceClient.post("", sublist.map(_.getSourceAsString).mkString("[", ",", "]"), Map())
           logger.info(s"After sent?")
         })

@@ -20,7 +20,7 @@ object Cluster extends LazyLogging {
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>
-        logger.info(s"Client connecting to $address")
+        logger.info(s"Client connecting to $address port ${cluster.port}")
         transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
         logger.info(s"Here client $transportClient")
     }
