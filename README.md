@@ -2,7 +2,7 @@
 
 ## es-server
 ```
-sbt "; project server; run-main com.broilogabriel.Server"
+sbt "project server" run
 ```
 
 ## es-client
@@ -23,7 +23,7 @@ Usage: es-client [options]
   -t, --targets <target_address1>,<target_address2>
                            default value 'localhost'
   -r, --targetPort <target_port>
-                           default value 9301
+                           default value 9300
   -u, --targetCluster <target_cluster>
                            
   --remoteAddress <remote_address>
@@ -35,17 +35,17 @@ Usage: es-client [options]
   --help                   Prints the usage text.
 ```
 
-Example:
+### Example:
 ```
 
-sbt "; project client; run-main com.broilogabriel.Client --help"
+sbt "project client" "run --help"
 
-sbt "; project client; run-main com.broilogabriel.Client \
+sbt "project client" "run \
         --indices=index_name \
         --sourceCluster=cluster_name \
         --targetCluster=cluster_name"
 
-sbt "; project client; run-main com.broilogabriel.Client \
+sbt "project client" "run \
         -d:2016-10-1=2016-10-25 \
         -c=cluster_name \
         -u=cluster_name"
