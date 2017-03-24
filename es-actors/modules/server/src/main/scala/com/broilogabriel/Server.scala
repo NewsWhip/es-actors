@@ -3,14 +3,10 @@ package com.broilogabriel
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.Actor
-import akka.actor.ActorRef
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.{ Actor, ActorRef, ActorSystem, PoisonPill, Props }
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.bulk.BulkProcessor
-//import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.index.IndexRequest
 
 object Server extends App with LazyLogging {
   logger.info(s"${BuildInfo.name} - ${BuildInfo.version}")
@@ -59,9 +55,7 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
       sender ! uuid
 
     case to: TransferObject =>
-      //      val indexRequest = new IndexRequest(to.index, to.hitType, to.hitId)
-      //      indexRequest.source(to.source)
-      //      bulkProcessor.add(indexRequest)
+      bulkProcessor.add(new IndexRequest(to.index, to.hitType, to.hitId).source(to.source))
       sender ! to.hitId
 
     case DONE =>

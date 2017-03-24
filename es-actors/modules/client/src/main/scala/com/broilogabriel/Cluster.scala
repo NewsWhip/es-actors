@@ -16,7 +16,8 @@ object Cluster extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
-      .put("client.transport.sniff", true).put("client.transport.ping_timeout", "60s").build()
+      //.put("client.transport.sniff", true)
+      .put("client.transport.ping_timeout", "60s").build()
     val transportClient = TransportClient.builder().settings(settings).build()
     cluster.addresses foreach {
       (address: String) =>

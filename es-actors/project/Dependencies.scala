@@ -12,8 +12,8 @@ object Dependencies {
   )
 
   // akka
-  val akkaActor: ModuleID = "com.typesafe.akka" %% "akka-actor" % "2.4.11"
-  val akkaRemote: ModuleID = "com.typesafe.akka" %% "akka-remote" % "2.4.11"
+  val akkaActor: ModuleID = "com.typesafe.akka" % "akka-actor_2.11" % "2.4.17"
+  val akkaRemote: ModuleID = "com.typesafe.akka" % "akka-remote_2.11" % "2.4.17"
   //  val akkaTestkit = "com.typesafe.akka" %% "akka-testkit" % "2.4.11" % "test"
 
   // functional utils

@@ -1,25 +1,26 @@
 package com.broilogabriel
 
 import java.util.UUID
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.{ Actor, ActorSystem, PoisonPill, Props }
-import akka.pattern.ask
-import akka.util.Timeout
+import akka.actor.{ Actor, ActorLogging, ActorSystem, PoisonPill, Props }
+import akka.http.scaladsl.Http
+import akka.http.scaladsl.model.Uri.Query
+import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, StatusCodes, Uri }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
+import akka.util.{ ByteString, Timeout }
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
 import org.joda.time.{ DateTime, DateTimeConstants }
+import org.json4s.JsonDSL._
+import org.json4s.native.JsonMethods._
+import org.json4s.{ DefaultFormats, _ }
 import scopt.OptionParser
-import spray.client.pipelining._
-import spray.http.{ HttpCharsets, HttpEntity, HttpRequest, HttpResponse, MediaTypes, Uri }
 
 import scala.annotation.tailrec
-import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, Future }
 
 object Config {
   val defaultPort = 9300
@@ -150,109 +151,133 @@ object Client extends LazyLogging {
 
 }
 
-class WebClient(implicit system: ActorSystem) extends LazyLogging {
+//class WebClient(implicit system: ActorSystem) extends LazyLogging {
+//
+//  val logRequest: HttpRequest => HttpRequest = { r => logger.debug(r.toString); r }
+//  val logResponse: HttpResponse => HttpResponse = { r => logger.debug(r.toString); r }
+//
+//  // create a function from HttpRequest to a Future of HttpResponse
+//  val pipeline: HttpRequest => Future[HttpResponse] = logRequest ~> sendReceive ~> logResponse
+//
+//  // create a function to send a GET request and receive a string response
+//  def post(path: String, json: String, params: Map[String, String]): Future[String] = {
+//    val uri = Uri("http://localhost:8080/article").withQuery(params)
+//    val request = Post(uri, HttpEntity(MediaTypes.`application/json`.withCharset(HttpCharsets.`UTF-8`), json))
+//    pipeline(request).map(
+//      resp => {
+//        logger.info(s"Success ${resp.status.isSuccess}")
+//        resp.entity.asString
+//      }
+//    )
+//  }
+//}
 
-  val logRequest: HttpRequest => HttpRequest = { r => logger.debug(r.toString); r }
-  val logResponse: HttpResponse => HttpResponse = { r => logger.debug(r.toString); r }
+class Client(config: Config) extends Actor with ActorLogging {
 
-  // create a function from HttpRequest to a Future of HttpResponse
-  val pipeline: HttpRequest => Future[HttpResponse] = logRequest ~> sendReceive ~> logResponse
-
-  // create a function to send a GET request and receive a string response
-  def post(path: String, json: String, params: Map[String, String]): Future[String] = {
-    val uri = Uri("http://localhost:18000/article").withQuery(params)
-    // TODO: @broilogabriel check if charset will work
-    val request = Post(uri, HttpEntity(MediaTypes.`application/json`.withCharset(HttpCharsets.`UTF-8`), json))
-    val futureResponse = pipeline(request)
-    futureResponse.map(
-      resp => {
-        logger.info(s"Success ${resp.status.isSuccess}")
-        resp.entity.asString
-      }
-    )
-  }
-}
-
-class Client(config: Config) extends Actor with LazyLogging {
+  import akka.pattern.pipe
+  import context.dispatcher
 
   var scroll: SearchResponse = _
   var cluster: TransportClient = _
   var uuid: UUID = _
   val total: AtomicLong = new AtomicLong()
   val wsPort = 18000
-  val slide = 100
+  val slide = 500
 
-  val restServiceClient = new WebClient()(context.system)
+  final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+  //  val restServiceClient = new WebClient()(context.system)
+
+  val http = Http(context.system)
 
   implicit val timeout = Timeout(120.seconds)
+  implicit val formats = DefaultFormats
 
   override def preStart(): Unit = {
     cluster = Cluster.getCluster(config.source)
     scroll = Cluster.getScrollId(cluster, config.index)
-    logger.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
+    log.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
     if (Cluster.checkIndex(cluster, config.index)) {
       val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
       // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
       remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
-      logger.info(s"${config.index} - Connected to remote")
+      log.info(s"${config.index} - Connected to remote")
     } else {
-      logger.info(s"Invalid index ${config.index}")
+      log.info(s"Invalid index ${config.index}")
       self ! PoisonPill
     }
   }
 
   override def postStop(): Unit = {
-    logger.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
+    log.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
     cluster.close()
   }
 
   override def receive: Actor.Receive = {
+
+    case HttpResponse(StatusCodes.OK, headers, entity, _) =>
+      entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
+        log.info("Got response, body: " + body.utf8String)
+      }
+    case resp@HttpResponse(code, _, _, _) =>
+      log.info("Request failed, response code: " + code)
+      resp.discardEntityBytes()
+
     case MORE =>
-      logger.debug(s"${sender.path.name} - requesting more")
+      log.debug(s"${sender.path.name} - requesting more")
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       if (hits.nonEmpty) {
         hits.sliding(slide).foreach(sublist => {
-          logger.info(s"sublist size - ${sublist.length}")
-          restServiceClient.post("", sublist.map(_.getSourceAsString).mkString("[", ",", "]"), Map())
-          logger.info(s"After sent?")
+          val data = sublist.map(hit =>
+            ("_source" -> parse(hit.getSourceAsString)) ~ ("_type" -> hit.getType) ~ ("_id" -> hit.getId)).toList
+          val request = HttpRequest(
+            method = HttpMethods.POST,
+            entity = HttpEntity(contentType = ContentTypes.`application/json`, compact(render(data))),
+            uri = Uri("http://localhost:8080/article").withQuery(Query("type" -> "elastic"))
+          )
+          http.singleRequest(request).pipeTo(self)
+          //          restServiceClient.post("", compact(render(data)), Map("type" -> "elastic")).andThen {
+          //            case Success(response) =>
+          //              (parse(response) \\ "response").values.asInstanceOf[List[Map[String, String]]].foreach {
+          //                i =>
+          //                  val to = TransferObject(uuid, config.index, i("_type"), i("_id"), write(i("_source")))
+          //                  try {
+          //                    val serverResponse = Await.result(sender ? to, timeout.duration)
+          //                    if (to.hitId != serverResponse) {
+          //                      logger.info(s"${sender.path.name} - Expected response: ${
+          //                        to.hitId
+          //                      }, but server responded with: $serverResponse")
+          //                    }
+          //                  } catch {
+          //                    case _@(_: TimeoutException | _: InterruptedException) =>
+          //                      logger.warn(s"${sender.path.name} - Exception  awaiting for $to")
+          //                    case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
+          //                  }
+          //              }
+          //            case Failure(e) => logger.error("Error calling the Rest service", e)
+          //          } andThen {
+          //            case _ =>
+          //              val totalSent = total.addAndGet(hits.length)
+          //              logger.debug(s"${sender.path.name} - ${config.index} - ${
+          //                (totalSent * 100) / scroll.getHits.getTotalHits
+          //              }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
+          //          }
         })
-        hits.foreach(hit => {
-          val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
-          try {
-            val serverResponse = Await.result(sender ? data, timeout.duration)
-            if (data.hitId != serverResponse) {
-              logger.info(s"${sender.path.name} - Expected response: ${
-                data
-                  .hitId
-              }, but server responded with: $serverResponse")
-            }
-          } catch {
-            case _@(_: TimeoutException | _: InterruptedException) =>
-              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
-            case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
-          }
-        })
-        val totalSent = total.addAndGet(hits.length)
-        logger.debug(s"${sender.path.name} - ${config.index} - ${
-          (totalSent * 100) / scroll.getHits
-            .getTotalHits
-        }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
       } else {
-        logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
+        log.info(s"${sender.path.name} - ${config.index} - Sending DONE")
         sender ! DONE
       }
 
     case uuidInc: UUID =>
       uuid = uuidInc
       val scrollId = scroll.getScrollId.substring(0, 10)
-      logger.debug(
+      log.debug(
         s"${sender.path.name} - ${config.index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
       )
       self.forward(MORE)
 
     case other =>
-      logger.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
+      log.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
   }
 
 }
