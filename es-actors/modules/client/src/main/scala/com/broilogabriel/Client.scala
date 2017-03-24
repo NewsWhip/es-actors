@@ -7,8 +7,9 @@ import akka.actor.{ Actor, ActorLogging, ActorSystem, PoisonPill, Props }
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, HttpResponse, StatusCodes, Uri }
+import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
-import akka.util.{ ByteString, Timeout }
+import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
@@ -216,9 +217,14 @@ class Client(config: Config) extends Actor with ActorLogging {
   override def receive: Actor.Receive = {
 
     case HttpResponse(StatusCodes.OK, headers, entity, _) =>
-      entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
-        log.info("Got response, body: " + body.utf8String)
-      }
+      val body = Unmarshal(entity).to[String].map(jsonString => {
+        parse(jsonString) \\ "response"
+      })
+      log.info(s"Body: $body")
+
+    //      entity.dataBytes.runFold(ByteString(""))(_ ++ _).foreach { body =>
+    //        log.info("Got response, body: " + body.utf8String.length)
+    //      }
     case resp@HttpResponse(code, _, _, _) =>
       log.info("Request failed, response code: " + code)
       resp.discardEntityBytes()
