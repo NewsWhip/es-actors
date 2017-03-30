@@ -7,7 +7,7 @@ import akka.actor.{ Actor, ActorLogging, ActorSelection, ActorSystem, PoisonPill
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, Uri }
-import akka.pattern.ask
+//import akka.pattern.ask
 import akka.stream.scaladsl.Source
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.util.{ ByteString, Timeout }
@@ -23,8 +23,9 @@ import org.json4s.{ DefaultFormats, _ }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
+import scala.concurrent.Await
 import scala.concurrent.duration._
-import scala.concurrent.{ Await, TimeoutException }
+//import scala.concurrent.TimeoutException
 import scala.util.{ Failure, Success }
 
 object Config {
@@ -160,39 +161,35 @@ class Client(config: Config) extends Actor with ActorLogging {
 
   import context.dispatcher
 
-  var scroll: SearchResponse = _
-  var cluster: TransportClient = _
-  var uuid: UUID = _
-  val total: AtomicLong = new AtomicLong()
-  val slide = 1000
+  final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
+  implicit val formats = DefaultFormats
+  implicit val timeout = Timeout(120.seconds)
 
   // TODO move to property or argument
   val uri: Uri = Uri("http://localhost:18000/article").withQuery(Query("type" -> "elastic"))
-
-  final implicit val materializer: ActorMaterializer = ActorMaterializer(ActorMaterializerSettings(context.system))
   val http = Http(context.system).cachedHostConnectionPool[Int](uri.authority.host.toString(), uri.effectivePort)
 
-  implicit val timeout = Timeout(120.seconds)
-  implicit val formats = DefaultFormats
+  var cluster: TransportClient = Cluster.getCluster(config.source)
+  var scroll: SearchResponse = Cluster.getScrollId(cluster, config.index)
+  var uuid: UUID = _
+  val total: AtomicLong = new AtomicLong()
+  val slide = 250
+  //  override def preStart(): Unit = {
+  log.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
+  if (Cluster.checkIndex(cluster, config.index)) {
+    val remote = getRemote
+    // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
+    remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
+    log.info(s"${config.index} - Connected to remote")
+  } else {
+    log.info(s"Invalid index ${config.index}")
+    self ! PoisonPill
+  }
+  //  }
 
   def getRemote: ActorSelection = {
     val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
     context.actorSelection(path)
-  }
-
-  override def preStart(): Unit = {
-    cluster = Cluster.getCluster(config.source)
-    scroll = Cluster.getScrollId(cluster, config.index)
-    log.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
-    if (Cluster.checkIndex(cluster, config.index)) {
-      val remote = getRemote
-      // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
-      remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
-      log.info(s"${config.index} - Connected to remote")
-    } else {
-      log.info(s"Invalid index ${config.index}")
-      self ! PoisonPill
-    }
   }
 
   override def postStop(): Unit = {
@@ -234,20 +231,21 @@ class Client(config: Config) extends Actor with ActorLogging {
             response.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
               val utf8String = body.utf8String
               val items = (parse(utf8String) \\ "response").values.asInstanceOf[List[Map[String, String]]]
-              log.info(s"Sending ${items.length} of $size to SERVER")
+              //              log.info(s"Sending ${items.length} of $size to SERVER")
               items.foreach {
                 i =>
                   val data = TransferObject(config.index, i("_type"), i("_id"), write(i("_source")))
-                  try {
-                    val sResp = Await.result(s ? data, timeout.duration)
-                    if (data.hitId != sResp) {
-                      log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
-                    }
-                  } catch {
-                    case _@(_: TimeoutException | _: InterruptedException) =>
-                      log.warning(s"$s - Exception  awaiting for $data")
-                    case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
-                  }
+                  //                  try {
+                  s ! data
+                //                    val sResp = Await.result(s ? data, timeout.duration)
+                //                    if (data.hitId != sResp) {
+                //                      log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
+                //                    }
+                //                  } catch {
+                //                    case _@(_: TimeoutException | _: InterruptedException) =>
+                //                      log.warning(s"$s - Exception  awaiting for $data")
+                //                    case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
+                //                  }
               }
             }
           case (Failure(t), size) =>
@@ -259,34 +257,9 @@ class Client(config: Config) extends Actor with ActorLogging {
         sender ! DONE
       }
 
-    //    case HttpResponse(StatusCodes.OK, _, entity, _) =>
-    //      //      log.info(s"Received this message from $sender")
-    //      val remote = sender
-    //      //      log.info(s"REMOTE $remote")
-    //      entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
-    //        val utf8String = body.utf8String
-    //        (parse(utf8String) \\ "response").values.asInstanceOf[List[Map[String, String]]].foreach {
-    //          i =>
-    //            val data = TransferObject(config.index, i("_type"), i("_id"), write(i("_source")))
-    //            try {
-    //              val sResp = Await.result(remote ? data, timeout.duration)
-    //              if (data.hitId != sResp) {
-    //                log.info(s"$remote - Expected response: ${data.hitId}, but server responded with: $sResp")
-    //              }
-    //            } catch {
-    //              case _@(_: TimeoutException | _: InterruptedException) =>
-    //                log.warning(s"$remote - Exception  awaiting for $data")
-    //              case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
-    //            }
-    //        }
-    //      }
-    //
-    //    case resp@HttpResponse(code, _, _, _) => // TODO better error handling
-    //      log.info("Request failed, response code: " + code)
-    //      resp.discardEntityBytes()
+    case str: String => log.debug(s"Received some string from the server: $str")
 
-    case other =>
-      log.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
+    case other => log.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
   }
 
 }
