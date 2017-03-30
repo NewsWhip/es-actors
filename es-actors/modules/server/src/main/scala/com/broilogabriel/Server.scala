@@ -3,7 +3,7 @@ package com.broilogabriel
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.{ Actor, ActorRef, ActorSystem, PoisonPill, Props }
+import akka.actor.{ Actor, ActorLogging, ActorRef, ActorSystem, PoisonPill, Props }
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.bulk.BulkProcessor
 import org.elasticsearch.action.index.IndexRequest
@@ -14,33 +14,33 @@ object Server extends App with LazyLogging {
   val actor = actorSystem.actorOf(Props[Server], name = "RemoteServer")
 }
 
-class Server extends Actor with LazyLogging {
+class Server extends Actor with ActorLogging {
 
   override def receive: Actor.Receive = {
 
     case cluster: ClusterConfig =>
       val uuid = UUID.randomUUID
-      logger.info(s"Server received cluster config: $cluster")
+      log.info(s"Server received cluster config: $cluster")
       context.actorOf(
         Props(classOf[BulkHandler], cluster),
         name = uuid.toString
       ).forward(uuid)
 
     case other =>
-      logger.info(s"Server unknown message: $other")
+      log.info(s"Server unknown message: $other")
 
   }
 
 }
 
-class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
+class BulkHandler(cluster: ClusterConfig) extends Actor with ActorLogging {
 
   val bListener = BulkListener(Cluster.getCluster(cluster), self)
   val bulkProcessor: BulkProcessor = Cluster.getBulkProcessor(bListener).build()
   val finishedActions: AtomicLong = new AtomicLong
 
   override def postStop(): Unit = {
-    logger.debug(s"${self.path.name} - Stopping BulkHandler")
+    log.debug(s"${self.path.name} - Stopping BulkHandler")
     bulkProcessor.flush()
     bListener.client.close()
   }
@@ -50,21 +50,22 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
   override def receive: Actor.Receive = {
 
     case uuid: UUID =>
-      logger.info(s"${self.path.name} - Starting")
+      log.info(s"${self.path.name} - Starting")
       client = sender()
       sender ! uuid
 
     case to: TransferObject =>
+      //      log.info(s"Received TO, index: ${to.index}")
       bulkProcessor.add(new IndexRequest(to.index, to.hitType, to.hitId).source(to.source))
       sender ! to.hitId
 
     case DONE =>
-      logger.info(s"${self.path.name} - Received DONE, gonna send PoisonPill")
+      log.info(s"${self.path.name} - Received DONE, gonna send PoisonPill")
       sender ! PoisonPill
 
     case finished: Int =>
       val actions = finishedActions.addAndGet(finished)
-      logger.info(
+      log.info(
         s"${self.path.name} - Processed ${(actions * 100) / cluster.totalHits}% $actions of ${cluster.totalHits}"
       )
       if (actions < cluster.totalHits) {
@@ -74,7 +75,7 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
       }
 
     case other =>
-      logger.info(s"${self.path.name} - Unknown message: $other")
+      log.info(s"${self.path.name} - Unknown message: $other")
   }
 
 }

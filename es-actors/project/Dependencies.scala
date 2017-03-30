@@ -11,9 +11,14 @@ object Dependencies {
     Resolver.sonatypeRepo("public")
   )
 
+  // elasticsearch
+
+  val elasticsearch: ModuleID = "org.elasticsearch" % "elasticsearch" % "2.4.1"
+
   // akka
-  val akkaActor: ModuleID = "com.typesafe.akka" % "akka-actor_2.11" % "2.4.17"
-  val akkaRemote: ModuleID = "com.typesafe.akka" % "akka-remote_2.11" % "2.4.17"
+  val akkaActor: ModuleID = "com.typesafe.akka" %% "akka-actor" % "2.4.17"
+  val akkaRemote: ModuleID = "com.typesafe.akka" %% "akka-remote" % "2.4.17"
+  val akkaStream: ModuleID = "com.typesafe.akka" %% "akka-stream" % "2.4.17"
   //  val akkaTestkit = "com.typesafe.akka" %% "akka-testkit" % "2.4.11" % "test"
 
   // functional utils
@@ -34,9 +39,9 @@ object Dependencies {
 
   // testing
   val mockito: ModuleID = "org.mockito" % "mockito-core" % "1.10.19"
-  val spec2: ModuleID = "org.specs2" %% "specs2" % "3.7"
-  val spec2Core: ModuleID = "org.specs2" %% "specs2-core" % "3.8.5"
-  val spec2JUnit: ModuleID = "org.specs2" %% "specs2-junit" % "3.8.5"
+  //  val spec2: ModuleID = "org.specs2" %% "specs2" % "3.7"
+  val spec2Core: ModuleID = "org.specs2" % "specs2-core_2.11" % "3.8.9"
+  //  val spec2JUnit: ModuleID = "org.specs2" % "specs2-junit_2.11" % "3.8.9"
 }
 
 trait Dependencies {
@@ -46,10 +51,10 @@ trait Dependencies {
   // resolvers
   val commonResolvers: Seq[Resolver] = resolvers
 
-  val mainDeps = Seq(scalaz, scalazConcurrent, scalazContrib, scopt, logback, scalaLogging, akkaActor, akkaRemote,
-    jodaTime, jodaConvert)
+  val mainDeps = Seq(elasticsearch, scalaz, scalazConcurrent, scalazContrib, scopt, logback, scalaLogging, akkaActor,
+    akkaRemote, akkaStream, jodaTime, jodaConvert)
 
-  val testDeps = Seq(mockito, spec2, spec2Core, spec2JUnit)
+  val testDeps = Seq(mockito, spec2Core)
 
   implicit class ProjectRoot(project: Project) {
 
