@@ -7,7 +7,7 @@ import akka.actor.{ Actor, ActorLogging, ActorSelection, ActorSystem, PoisonPill
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, Uri }
-//import akka.pattern.ask
+import akka.pattern.ask
 import akka.stream.scaladsl.Source
 import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.util.{ ByteString, Timeout }
@@ -23,9 +23,8 @@ import org.json4s.{ DefaultFormats, _ }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
-import scala.concurrent.Await
+import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration._
-//import scala.concurrent.TimeoutException
 import scala.util.{ Failure, Success }
 
 object Config {
@@ -235,17 +234,16 @@ class Client(config: Config) extends Actor with ActorLogging {
               items.foreach {
                 i =>
                   val data = TransferObject(config.index, i("_type"), i("_id"), write(i("_source")))
-                  //                  try {
-                  s ! data
-                //                    val sResp = Await.result(s ? data, timeout.duration)
-                //                    if (data.hitId != sResp) {
-                //                      log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
-                //                    }
-                //                  } catch {
-                //                    case _@(_: TimeoutException | _: InterruptedException) =>
-                //                      log.warning(s"$s - Exception  awaiting for $data")
-                //                    case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
-                //                  }
+                  try {
+                    val sResp = Await.result(s ? data, timeout.duration)
+                    if (data.hitId != sResp) {
+                      log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
+                    }
+                  } catch {
+                    case _@(_: TimeoutException | _: InterruptedException) =>
+                      log.warning(s"$s - Exception  awaiting for $data")
+                    case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
+                  }
               }
             }
           case (Failure(t), size) =>
