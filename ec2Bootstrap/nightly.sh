@@ -12,12 +12,11 @@ SOURCE_IPS="$4"
 TARGET_IPS="$5"
 TARGET_PORT="$6"
 WEEKS="$7"
-INDEX="--indices=$(date +sg-%Y-%-V)"
 NIGHTLY="--nightly date=$DATE_START,weeksBack=$WEEKS"
 
 echo "Executing nightly script with date: $DATE_START and weeks: $WEEKS"
 
-CMD="sbt -J-Xmx25G -J-Xms25G \"; project client; run-main com.broilogabriel.Client --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS $NIGHTLY $INDEX\""
+CMD="sbt -J-Xmx25G -J-Xms25G \"; project client; run-main com.broilogabriel.Client --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS $NIGHTLY\""
 
 echo "$CMD"
 cd $CLIENT_PROJECT && eval $CMD
