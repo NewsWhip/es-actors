@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=1.3.33
+ES_ACTORS_VERSION=1.3.34
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run
@@ -36,7 +36,7 @@ apt-get update
 apt_get_install sbt
 
 # Install AWS cli
-apt-get_install awscli
+apt_get_install awscli
 
 mkdir /opt/elasticsearch-migration
 cd /opt/elasticsearch-migration
@@ -58,6 +58,18 @@ chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-kibana/ec2Bo
 
 # Finally let's setup our cronjobs
 sleep 100
+
+# if We've had an pricing induced termination we will automatically run
+TIME=$(date +%H%M)
+if (( $TIME > 0045 && $TIME < 1200 )); then
+    echo 'Forcing data transfer to begin' > /root/user_data_run
+    /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors NewsWhipCluster NewsWhipStagingCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111 9300 8 >/dev/null 2>&1 &
+    /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-kibana/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-kibana/es-actors NewsWhipCluster NewsWhipKibanaCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.9.14,10.0.1.15,10.0.7.15 9300 8 >/dev/null 2>&1 &
+else
+    echo 'Nothing to do here' > /root/user_data_run
+fi
+
+
 echo "45 0 * * * root /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors NewsWhipCluster NewsWhipStagingCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111 9300 8 >/dev/null 2>&1 &" >> /etc/crontab
 echo "45 0 * * * root /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-kibana/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION-kibana/es-actors NewsWhipCluster NewsWhipKibanaCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.9.14,10.0.1.15,10.0.7.15 9300 8 >/dev/null 2>&1 &" >> /etc/crontab
 echo "45 12 * * * root /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/terminateSelf.sh >/dev/null 2>&1 &" >> /etc/crontab
