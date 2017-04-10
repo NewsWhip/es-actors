@@ -1,4 +1,4 @@
-package pl.combosolutions
+package com.broilogabriel
 
 object TestTag {
   val IntegrationTest = "integration"

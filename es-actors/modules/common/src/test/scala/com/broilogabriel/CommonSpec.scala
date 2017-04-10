@@ -1,10 +1,9 @@
-package pl.combosolutions
+package com.broilogabriel
 
-import org.specs2.mock.Mockito
+import com.broilogabriel.TestTag._
 import org.specs2.mutable.Specification
-import pl.combosolutions.TestTag._
 
-class CommonSpec extends Specification with Mockito {
+class CommonSpec extends Specification {
 
   "Common" should {
 
