@@ -1,5 +1,7 @@
 <configuration>
 
+    <property name="LOGS_HOME" value="./logs/" />
+
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
@@ -8,12 +10,11 @@
 
     <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <!-- path to your log file, where you want to store logs -->
-        <file>./logs/client.log</file>
+        <file>${LOGS_HOME}/client.log</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
             <!-- daily rollover -->
-            <fileNamePattern>%d{yyyy-MM-dd}.client.log</fileNamePattern>
-
-            <!-- keep 30 days' worth of history capped at 3GB total size -->
+            <fileNamePattern>${LOGS_HOME}/%d{yyyy-MM-dd}.client.log</fileNamePattern>
+            <!-- keep 30 days' worth of history capped at 1GB total size -->
             <maxHistory>30</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
