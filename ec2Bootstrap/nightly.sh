@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# 45 0 * * * /opt/elasticsearch-migration/es-actors-1.3.7/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-1.3.7/ NewsWhipCluster NewsWhipStagingCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110 9300 8 >/dev/null 2>&1
+# 45 0 * * * /opt/elasticsearch-migration/es-actors-VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-1.3.7/ NewsWhipCluster NewsWhipStagingCluster 10.0.1.10,10.0.3.10,10.0.7.10,10.0.9.10 10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110 9300 4 >/dev/null 2>&1
 
 # Setup cronjob with this script to run
 DATE_START=$(date +%Y-%m-%d)
@@ -17,7 +17,7 @@ NIGHTLY="--nightly date=$DATE_START,weeksBack=$WEEKS"
 
 echo "Executing nightly script with date: $DATE_START and weeks: $WEEKS"
 
-CMD="sbt -J-Xmx25G -J-Xms25G \"; project client; run-main com.broilogabriel.Client --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS $NIGHTLY $INDEX\""
+CMD="sbt -J-Xmx25G -J-Xms25G \"project client\" run --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS $NIGHTLY $INDEX\""
 
 echo "$CMD"
 cd $CLIENT_PROJECT && eval $CMD
