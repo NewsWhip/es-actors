@@ -35,8 +35,10 @@ apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv 2EE0EA64E40A89B84B2
 apt-get update
 apt_get_install sbt
 
-mkdir /opt/elasticsearch-migration
-cd /opt/elasticsearch-migration
+WORKDIR=/opt/elasticsearch-migration
+
+mkdir $WORKDIR
+cd $WORKDIR
 
 # Setup server
 wget https://github.com/NewsWhip/es-actors/archive/v$ES_ACTORS_VERSION.tar.gz
@@ -44,16 +46,16 @@ tar -xvf v$ES_ACTORS_VERSION.tar.gz
 cd es-actors-$ES_ACTORS_VERSION/es-actors
 SERVER_CMD="sbt -J-Xmx25G -J-Xms25G \"project server\" run"
 eval $SERVER_CMD </dev/null &>/dev/null &
-chmod 755 /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
+chmod 755 $WORKDIR/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
 
 # Finally let's setup the cronjob
 ORIGIN_CLUSTER="NewsWhipStagingCluster"
 ORIGIN_NODES="10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111"
 TARGET_CLUSTER="NewsWhipTestCluster"
 TARGET_NODES="10.0.9.104,10.0.7.166,10.0.9.55,10.0.7.189,10.0.1.62"
+WS="http://10.0.1.20:8000/article"
 sleep 100
-echo "45 0 * * * root /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh /opt/elasticsearch-migration/es-actors-$ES_ACTORS_VERSION/es-actors $ORIGIN_CLUSTER $TARGET_CLUSTER $ORIGIN_NODES $TARGET_NODES 9300 4 >/dev/null 2>&1 &" >> /etc/crontab
+echo "45 0 * * * root $WORKDIR/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh $WORKDIR/es-actors-$ES_ACTORS_VERSION/es-actors $ORIGIN_CLUSTER $TARGET_CLUSTER $ORIGIN_NODES $TARGET_NODES 4 >/dev/null 2>&1 &" >> /etc/crontab
 
 # Mark execution end
 echo "DONE" >> /root/user_data_run
-

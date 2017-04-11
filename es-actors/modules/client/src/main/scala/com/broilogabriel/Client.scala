@@ -23,8 +23,8 @@ import org.json4s.{ DefaultFormats, _ }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
-import scala.concurrent.{ Await, TimeoutException }
 import scala.concurrent.duration._
+import scala.concurrent.{ Await, TimeoutException }
 import scala.util.{ Failure, Success }
 
 object Config {
@@ -33,12 +33,12 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer") {
+  sourceAddresses: Seq[String] = Seq("localhost"),
+  sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
+  targetAddresses: Seq[String] = Seq("localhost"),
+  targetPort: Int = Config.defaultPort, targetCluster: String = "",
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+  remoteName: String = "RemoteServer", ws: String = "") {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -96,8 +96,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -116,6 +116,8 @@ object Client extends LazyLogging {
     opt[String]("remoteAddress").valueName("<remote_address>").action((x, c) => c.copy(remoteAddress = x))
     opt[Int]("remotePort").valueName("<remote_port>").action((x, c) => c.copy(remotePort = x))
     opt[String]("remoteName").valueName("<remote_name>").action((x, c) => c.copy(remoteName = x))
+
+    opt[String]("ws").valueName("<web_service>").action((x, c) => c.copy(ws = x))
 
     opt[Map[String, String]]("nightly").valueName("value name to define")
       .validate(p => {
@@ -165,7 +167,7 @@ class Client(config: Config) extends Actor with ActorLogging {
   implicit val timeout = Timeout(120.seconds)
 
   // TODO move to property or argument
-  val uri: Uri = Uri("http://localhost:18000/article").withQuery(Query("type" -> "elastic"))
+  val uri: Uri = Uri(config.ws).withQuery(Query("type" -> "elastic"))
   val http = Http(context.system).cachedHostConnectionPool[Int](uri.authority.host.toString(), uri.effectivePort)
 
   var cluster: TransportClient = Cluster.getCluster(config.source)

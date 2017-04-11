@@ -6,18 +6,19 @@
 DATE_START=$(date +%Y-%m-%d)
 
 CLIENT_PROJECT="$1"
-SOURCE_CLUSTER="$2"
-TARGET_CLUSTER="$3"
-SOURCE_IPS="$4"
-TARGET_IPS="$5"
-TARGET_PORT="$6"
-WEEKS="$7"
+SOURCE_CLUSTER="--sourceCluster=$2"
+TARGET_CLUSTER="--targetCluster=$3"
+SOURCE_IPS="--sources=$4"
+TARGET_IPS="--targets=$5"
+WEEKS="$6"
+WS="--ws=$7"
+
 INDEX="--indices=$(date +sg-%Y-%-V)"
 NIGHTLY="--nightly date=$DATE_START,weeksBack=$WEEKS"
 
 echo "Executing nightly script with date: $DATE_START and weeks: $WEEKS"
 
-CMD="sbt -J-Xmx25G -J-Xms25G \"project client\" run --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS $NIGHTLY $INDEX\""
+CMD="sbt -J-Xmx25G -J-Xms25G \"project client\" \"run $SOURCE_CLUSTER $TARGET_CLUSTER $SOURCE_IPS $TARGET_IPS $NIGHTLY $INDEX $WS\""
 
 echo "$CMD"
 cd $CLIENT_PROJECT && eval $CMD
