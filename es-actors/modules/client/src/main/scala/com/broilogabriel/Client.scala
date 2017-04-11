@@ -38,7 +38,8 @@ case class Config(index: String = "", indices: Set[String] = Set.empty,
   targetAddresses: Seq[String] = Seq("localhost"),
   targetPort: Int = Config.defaultPort, targetCluster: String = "",
   remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-  remoteName: String = "RemoteServer", ws: String = "") {
+  remoteName: String = "RemoteServer", ws: String = "",
+  ask: Boolean = false) {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -129,6 +130,8 @@ object Client extends LazyLogging {
         }
       })
       .action((x, c) => c.copy(indices = c.indices ++ indicesByWeeks(x("date"), x("weeksBack")).get))
+
+    opt[Unit]("ask").action((_, c) => c.copy(ask = true)).text("Use ask pattern to send TO")
 
     help("help").text("Prints the usage text.")
 
@@ -228,23 +231,25 @@ class Client(config: Config) extends Actor with ActorLogging {
           (request, sublist.length)
         }).via(http).runForeach {
           case (Success(response), size) =>
-            //            log.info(s"Got response from $size")
             response.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
               val utf8String = body.utf8String
               val items = (parse(utf8String) \\ "response").values.asInstanceOf[List[Map[String, String]]]
-              //              log.info(s"Sending ${items.length} of $size to SERVER")
               items.foreach {
                 i =>
                   val data = TransferObject(config.index, i("_type"), i("_id"), write(i("_source")))
-                  try {
-                    val sResp = Await.result(s ? data, timeout.duration)
-                    if (data.hitId != sResp) {
-                      log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
+                  if (config.ask) {
+                    try {
+                      val sResp = Await.result(s ? data, timeout.duration)
+                      if (data.hitId != sResp) {
+                        log.info(s"$s - Expected response: ${data.hitId}, but server responded with: $sResp")
+                      }
+                    } catch {
+                      case _@(_: TimeoutException | _: InterruptedException) =>
+                        log.warning(s"$s - Exception  awaiting for $data")
+                      case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
                     }
-                  } catch {
-                    case _@(_: TimeoutException | _: InterruptedException) =>
-                      log.warning(s"$s - Exception  awaiting for $data")
-                    case e: Exception => log.error(s"Unexpected Exception: ${e.getMessage}")
+                  } else {
+                    s ! data
                   }
               }
             }

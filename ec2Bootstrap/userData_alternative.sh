@@ -44,7 +44,7 @@ cd $WORKDIR
 wget https://github.com/NewsWhip/es-actors/archive/v$ES_ACTORS_VERSION.tar.gz
 tar -xvf v$ES_ACTORS_VERSION.tar.gz
 cd es-actors-$ES_ACTORS_VERSION/es-actors
-SERVER_CMD="sbt -J-Xmx25G -J-Xms25G \"project server\" run"
+SERVER_CMD="sbt -DLOGS_HOME=$WORKDIR/logs -J-Xmx25G -J-Xms25G \"project server\" run"
 eval $SERVER_CMD </dev/null &>/dev/null &
 chmod 755 $WORKDIR/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh
 
