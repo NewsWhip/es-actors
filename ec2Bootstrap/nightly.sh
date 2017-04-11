@@ -12,13 +12,14 @@ SOURCE_IPS="--sources=$4"
 TARGET_IPS="--targets=$5"
 WEEKS="$6"
 WS="--ws=$7"
+LOGS="-DLOGS_HOME=$8"
 
 INDEX="--indices=$(date +sg-%Y-%-V)"
 NIGHTLY="--nightly date=$DATE_START,weeksBack=$WEEKS"
 
 echo "Executing nightly script with date: $DATE_START and weeks: $WEEKS"
 
-CMD="sbt -J-Xmx25G -J-Xms25G \"project client\" \"run $SOURCE_CLUSTER $TARGET_CLUSTER $SOURCE_IPS $TARGET_IPS $NIGHTLY $INDEX $WS\""
+CMD="sbt $LOGS -J-Xmx25G -J-Xms25G \"project client\" \"run $SOURCE_CLUSTER $TARGET_CLUSTER $SOURCE_IPS $TARGET_IPS $NIGHTLY $INDEX $WS\""
 
 echo "$CMD"
 cd $CLIENT_PROJECT && eval $CMD

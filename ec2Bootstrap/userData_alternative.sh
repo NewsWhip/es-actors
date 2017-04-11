@@ -36,8 +36,8 @@ apt-get update
 apt_get_install sbt
 
 WORKDIR=/opt/elasticsearch-migration
-
 mkdir $WORKDIR
+mkdir $WORKDIR/logs
 cd $WORKDIR
 
 # Setup server
@@ -54,8 +54,11 @@ ORIGIN_NODES="10.0.1.110,10.0.3.110,10.0.7.110,10.0.9.110,10.0.1.111"
 TARGET_CLUSTER="NewsWhipTestCluster"
 TARGET_NODES="10.0.9.104,10.0.7.166,10.0.9.55,10.0.7.189,10.0.1.62"
 WS="http://10.0.1.20:8000/article"
+LOGS="$WORKDIR/logs"
 sleep 100
-echo "45 0 * * * root $WORKDIR/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh $WORKDIR/es-actors-$ES_ACTORS_VERSION/es-actors $ORIGIN_CLUSTER $TARGET_CLUSTER $ORIGIN_NODES $TARGET_NODES 4 >/dev/null 2>&1 &" >> /etc/crontab
+echo "45 0 * * * root $WORKDIR/es-actors-$ES_ACTORS_VERSION/ec2Bootstrap/nightly.sh $WORKDIR/es-actors-$ES_ACTORS_VERSION/es-actors $ORIGIN_CLUSTER $TARGET_CLUSTER $ORIGIN_NODES $TARGET_NODES 4 $WS $LOGS >/dev/null 2>&1 &" >> /etc/crontab
+
+chown -R ubuntu:ubuntu $WORKDIR
 
 # Mark execution end
 echo "DONE" >> /root/user_data_run

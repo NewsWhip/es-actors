@@ -1,6 +1,6 @@
 <configuration>
 
-    <property name="LOGS_HOME" value="./logs/" />
+    <!--<property name="LOGS_HOME" value="./logs/" />-->
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>

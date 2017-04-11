@@ -4,8 +4,7 @@ import sbt.Defaults.testTasks
 import sbt.Keys._
 import sbt.TestFrameworks.Specs2
 import sbt.Tests.Argument
-import sbt._
-import sbt.{ IntegrationTest => _ }
+import sbt.{ IntegrationTest => _, _ }
 import scoverage.ScoverageKeys._
 import scoverage.ScoverageSbtPlugin
 
@@ -28,7 +27,7 @@ object Settings extends Dependencies {
 
   private val commonSettings = Seq(
     organization := defaultOrg,
-    version := "1.3.32",
+    version := "2.0.1-alpha",
     scalaVersion := scalaVersionUsed
   )
 
@@ -59,12 +58,12 @@ object Settings extends Dependencies {
     coverageEnabled := false,
 
     ScalariformKeys.preferences := ScalariformKeys.preferences.value
-//      .setPreference(AlignArguments, false)
-//      .setPreference(AlignParameters, false)
-//      .setPreference(AlignSingleLineCaseStatements, false)
-//      .setPreference(DoubleIndentClassDeclaration, false)
-//      .setPreference(IndentLocalDefs, false)
-//      .setPreference(PreserveSpaceBeforeArguments, true)
+      //      .setPreference(AlignArguments, false)
+      //      .setPreference(AlignParameters, false)
+      //      .setPreference(AlignSingleLineCaseStatements, false)
+      //      .setPreference(DoubleIndentClassDeclaration, false)
+      //      .setPreference(IndentLocalDefs, false)
+      //      .setPreference(PreserveSpaceBeforeArguments, true)
       .setPreference(SpacesWithinPatternBinders, false)
     , scalastyleFailOnError := true
 
