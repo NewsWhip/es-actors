@@ -2,7 +2,7 @@ package com.broilogabriel
 
 object ClusterConfig {
   //Beware of setting this variable any higher, causes memory issues in source cluster
-  val scrollSize = 1000
+  val scrollSize = 2000
   val minutesAlive = 10
   val bulkActions = 1000
   val bulkSizeMb = 1

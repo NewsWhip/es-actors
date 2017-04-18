@@ -177,7 +177,7 @@ class Client(config: Config) extends Actor with ActorLogging {
   var scroll: SearchResponse = Cluster.getScrollId(cluster, config.index)
   var uuid: UUID = _
   val total: AtomicLong = new AtomicLong()
-  val slide = 250
+  val slide = 500
   //  override def preStart(): Unit = {
   log.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
   if (Cluster.checkIndex(cluster, config.index)) {
