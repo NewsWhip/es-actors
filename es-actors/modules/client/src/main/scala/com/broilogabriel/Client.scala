@@ -9,7 +9,7 @@ import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, Uri }
 import akka.pattern.ask
 import akka.stream.scaladsl.Source
-import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings, OverflowStrategy }
 import akka.util.{ ByteString, Timeout }
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
@@ -33,13 +33,13 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-  sourceAddresses: Seq[String] = Seq("localhost"),
-  sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
-  targetAddresses: Seq[String] = Seq("localhost"),
-  targetPort: Int = Config.defaultPort, targetCluster: String = "",
-  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-  remoteName: String = "RemoteServer", ws: String = "",
-  ask: Boolean = false) {
+    sourceAddresses: Seq[String] = Seq("localhost"),
+    sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
+    targetAddresses: Seq[String] = Seq("localhost"),
+    targetPort: Int = Config.defaultPort, targetCluster: String = "",
+    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+    remoteName: String = "RemoteServer", ws: String = "",
+    ask: Boolean = false) {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -97,8 +97,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -201,6 +201,8 @@ class Client(config: Config) extends Actor with ActorLogging {
     cluster.close()
   }
 
+  val queue = Source.queue(25, OverflowStrategy.backpressure)
+
   override def receive: Actor.Receive = {
 
     case uuidInc: UUID =>
@@ -219,6 +221,7 @@ class Client(config: Config) extends Actor with ActorLogging {
       if (hits.nonEmpty) {
         var sent = 0
         val grouped = hits.grouped(slide)
+
         Source.fromIterator(() => grouped).map(sublist => {
           val data = sublist.map(hit =>
             ("_source" -> parse(hit.getSourceAsString)) ~ ("_type" -> hit.getType) ~ ("_id" -> hit.getId)).toList
