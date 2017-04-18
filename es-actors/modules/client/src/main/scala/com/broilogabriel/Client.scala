@@ -213,12 +213,13 @@ class Client(config: Config) extends Actor with ActorLogging {
 
     case MORE =>
       log.debug(s"${sender.path.name} - requesting more")
+      val sTime = System.currentTimeMillis()
       val s = sender
       val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
       if (hits.nonEmpty) {
         var sent = 0
         val grouped = hits.grouped(slide)
-        val f = Source.fromIterator(() => grouped).map(sublist => {
+        Source.fromIterator(() => grouped).map(sublist => {
           val data = sublist.map(hit =>
             ("_source" -> parse(hit.getSourceAsString)) ~ ("_type" -> hit.getType) ~ ("_id" -> hit.getId)).toList
           val request = HttpRequest(
@@ -227,9 +228,9 @@ class Client(config: Config) extends Actor with ActorLogging {
             uri = uri
           )
           sent += sublist.length
-          log.info(s"Sending $sent of ${hits.length} to web service")
+          //          log.info(s"Sending $sent of ${hits.length} to web service")
           (request, sublist.length)
-        }).via(http).runForeach {
+        }).via(http).async.runForeach {
           case (Success(response), size) =>
             response.entity.dataBytes.runFold(ByteString(""))(_ ++ _).map { body =>
               val utf8String = body.utf8String
@@ -252,11 +253,15 @@ class Client(config: Config) extends Actor with ActorLogging {
                     s ! data
                   }
               }
+              val partial = total.addAndGet(items.size)
+              val totalHits = scroll.getHits.getTotalHits
+              val numbers = s"$partial of $totalHits | ${partial * 100 / totalHits}%"
+              log.info(s"Sent in ${System.currentTimeMillis() - sTime} - $numbers to ${config.index}")
             }
           case (Failure(t), size) =>
             log.error(s"Failed: $t , $size")
         }
-        Await.ready(f, 5.minutes)
+        //        Await.ready(f, 5.minutes)
       } else {
         log.info(s"${sender.path.name} - ${config.index} - Sending DONE")
         sender ! DONE
