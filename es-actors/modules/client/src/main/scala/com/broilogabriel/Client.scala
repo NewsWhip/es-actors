@@ -9,7 +9,7 @@ import akka.http.scaladsl.model.Uri.Query
 import akka.http.scaladsl.model.{ ContentTypes, HttpEntity, HttpMethods, HttpRequest, Uri }
 import akka.pattern.ask
 import akka.stream.scaladsl.Source
-import akka.stream.{ ActorMaterializer, ActorMaterializerSettings, OverflowStrategy }
+import akka.stream.{ ActorMaterializer, ActorMaterializerSettings }
 import akka.util.{ ByteString, Timeout }
 import com.broilogabriel.Reaper.WatchMe
 import com.typesafe.scalalogging.LazyLogging
@@ -192,7 +192,7 @@ class Client(config: Config) extends Actor with ActorLogging {
   //  }
 
   def getRemote: ActorSelection = {
-    val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
+    val path = s"akka://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
     context.actorSelection(path)
   }
 
@@ -200,8 +200,6 @@ class Client(config: Config) extends Actor with ActorLogging {
     log.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
     cluster.close()
   }
-
-  val queue = Source.queue(25, OverflowStrategy.backpressure)
 
   override def receive: Actor.Receive = {
 
