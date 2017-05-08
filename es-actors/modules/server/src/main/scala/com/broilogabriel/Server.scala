@@ -49,13 +49,11 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
     bListener.client.close()
   }
 
-  var client: ActorRef = _
 
   override def receive: Actor.Receive = {
 
     case uuid: UUID =>
       logger.info(s"${self.path.name} - Starting")
-      client = sender()
       sender ! uuid
 
     case to: TransferObject =>
@@ -67,14 +65,15 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
     case DONE =>
       logger.info(s"${self.path.name} - Received DONE, gonna send PoisonPill")
       sender ! PoisonPill
+      self ! PoisonPill
 
     case finished: Int =>
       val actions = finishedActions.addAndGet(finished)
-      logger.debug(
+      logger.info(
         s"${self.path.name} - Processed ${(actions * 100) / cluster.totalHits}% $actions of ${cluster.totalHits}"
       )
       if (actions < cluster.totalHits) {
-        client ! MORE
+        sender ! MORE
       } else {
         self ! PoisonPill
       }

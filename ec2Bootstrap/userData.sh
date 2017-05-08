@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=1.3.33
+ES_ACTORS_VERSION=1.3.35
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run
@@ -36,7 +36,7 @@ apt-get update
 apt_get_install sbt
 
 # Install AWS cli
-apt-get_install awscli
+apt_get_install awscli
 
 mkdir /opt/elasticsearch-migration
 cd /opt/elasticsearch-migration

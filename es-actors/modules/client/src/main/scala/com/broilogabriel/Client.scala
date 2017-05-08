@@ -204,7 +204,7 @@ class Client(config: Config) extends Actor with LazyLogging {
           }
         })
         val totalSent = total.addAndGet(hits.length)
-        logger.debug(s"${sender.path.name} - ${config.index} - ${
+        logger.info(s"${sender.path.name} - ${config.index} - ${
           (totalSent * 100) / scroll.getHits
             .getTotalHits
         }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
