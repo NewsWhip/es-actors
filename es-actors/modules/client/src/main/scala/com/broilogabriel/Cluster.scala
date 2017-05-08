@@ -22,7 +22,8 @@ object Cluster extends LazyLogging {
     cluster.addresses foreach {
       (address: String) =>
         logger.info(s"Client connecting to $address")
-        transportClient.addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
+        transportClient.
+          addTransportAddress(new InetSocketTransportAddress(InetAddress.getByName(address), cluster.port))
         logger.info(s"Here client $transportClient")
     }
 
