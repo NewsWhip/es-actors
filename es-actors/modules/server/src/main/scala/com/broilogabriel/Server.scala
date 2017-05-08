@@ -4,7 +4,6 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicLong
 
 import akka.actor.Actor
-import akka.actor.ActorRef
 import akka.actor.ActorSystem
 import akka.actor.PoisonPill
 import akka.actor.Props
@@ -48,7 +47,6 @@ class BulkHandler(cluster: ClusterConfig) extends Actor with LazyLogging {
     bulkProcessor.flush()
     bListener.client.close()
   }
-
 
   override def receive: Actor.Receive = {
 
