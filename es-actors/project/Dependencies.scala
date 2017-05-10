@@ -14,7 +14,6 @@ object Dependencies {
   // akka
   val akkaActor: ModuleID = "com.typesafe.akka" %% "akka-actor" % "2.4.11"
   val akkaRemote: ModuleID = "com.typesafe.akka" %% "akka-remote" % "2.4.11"
-  //  val akkaTestkit = "com.typesafe.akka" %% "akka-testkit" % "2.4.11" % "test"
 
   // functional utils
   val scalaz: ModuleID = "org.scalaz" %% "scalaz-core" % "7.2.6"
@@ -24,6 +23,9 @@ object Dependencies {
   // util
   val jodaTime: ModuleID = "joda-time" % "joda-time" % "2.9.4"
   val jodaConvert: ModuleID = "org.joda" % "joda-convert" % "1.8"
+
+  // guice
+  val guice: ModuleID = "com.google.inject.extensions" % "guice-assistedinject" % "4.0"
 
   // command line
   val scopt: ModuleID = "com.github.scopt" %% "scopt" % "3.5.0"
@@ -37,6 +39,9 @@ object Dependencies {
   val spec2: ModuleID = "org.specs2" %% "specs2" % "3.7"
   val spec2Core: ModuleID = "org.specs2" %% "specs2-core" % "3.8.5"
   val spec2JUnit: ModuleID = "org.specs2" %% "specs2-junit" % "3.8.5"
+  val akkaTestkit = "com.typesafe.akka" %% "akka-testkit" % "2.4.11"
+  val scalaTest = "org.scalatest" %% "scalatest" % "3.0.1"
+
 }
 
 trait Dependencies {
@@ -47,9 +52,9 @@ trait Dependencies {
   val commonResolvers: Seq[Resolver] = resolvers
 
   val mainDeps = Seq(scalaz, scalazConcurrent, scalazContrib, scopt, logback, scalaLogging, akkaActor, akkaRemote,
-    jodaTime, jodaConvert)
+    jodaTime, jodaConvert, guice)
 
-  val testDeps = Seq(mockito, spec2, spec2Core, spec2JUnit)
+  val testDeps = Seq(mockito, spec2, spec2Core, spec2JUnit, akkaTestkit, scalaTest)
 
   implicit class ProjectRoot(project: Project) {
 

@@ -2,6 +2,7 @@ package com.broilogabriel
 
 import java.net.InetAddress
 
+import com.google.inject.Inject
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.client.transport.TransportClient
@@ -13,7 +14,7 @@ import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.sort.SortOrder
 import org.elasticsearch.search.sort.SortParseElement
 
-object Cluster extends LazyLogging {
+class Cluster @Inject() (transportClient: TransportClient) extends LazyLogging {
 
   def getCluster(cluster: ClusterConfig): TransportClient = {
     val settings = Settings.settingsBuilder().put("cluster.name", cluster.name)
@@ -29,13 +30,13 @@ object Cluster extends LazyLogging {
     transportClient
   }
 
-  def checkIndex(cluster: TransportClient, index: String): Boolean = {
-    cluster.admin().indices().prepareExists(index)
+  def checkIndex(index: String): Boolean = {
+    transportClient.admin().indices().prepareExists(index)
       .execute().actionGet().isExists
   }
 
-  def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
-    cluster.prepareSearch(index)
+  def getScrollId(index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
+    transportClient.prepareSearch(index)
       .addSort(SortParseElement.DOC_FIELD_NAME, SortOrder.ASC)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .setQuery(QueryBuilders.matchAllQuery)
@@ -43,13 +44,17 @@ object Cluster extends LazyLogging {
       .execute().actionGet()
   }
 
-  def scroller(index: String, scrollId: String, cluster: TransportClient): Array[SearchHit] = {
-    val partial = cluster.prepareSearchScroll(scrollId)
+  def scroller(index: String, scrollId: String): Array[SearchHit] = {
+    val partial = transportClient.prepareSearchScroll(scrollId)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
       .execute()
       .actionGet()
     logger.debug(s"Getting scroll for index ${index} took ${partial.getTookInMillis}ms")
     partial.getHits.hits()
+  }
+
+  def close(): Unit = {
+    transportClient.close()
   }
 
 }

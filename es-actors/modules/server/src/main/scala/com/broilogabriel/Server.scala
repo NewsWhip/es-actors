@@ -21,7 +21,6 @@ object Server extends App with LazyLogging {
 class Server extends Actor with LazyLogging {
 
   override def receive: Actor.Receive = {
-
     case cluster: ClusterConfig =>
       val uuid = UUID.randomUUID
       logger.info(s"Server received cluster config: $cluster")
@@ -32,7 +31,6 @@ class Server extends Actor with LazyLogging {
 
     case other =>
       logger.info(s"Server unknown message: $other")
-
   }
 
 }

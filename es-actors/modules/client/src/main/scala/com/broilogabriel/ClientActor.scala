@@ -4,43 +4,28 @@ import java.util.UUID
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicLong
 
-import akka.actor.Actor
-import akka.actor.ActorSystem
-import akka.actor.PoisonPill
-import akka.actor.Props
+import akka.actor.{ Actor, ActorPath, ActorSystem, PoisonPill, Props }
 import akka.pattern.ask
 import akka.util.Timeout
 import com.broilogabriel.Reaper.WatchMe
+import com.google.inject.Inject
+import com.google.inject.assistedinject.Assisted
 import com.typesafe.scalalogging.LazyLogging
 import org.elasticsearch.action.search.SearchResponse
-import org.elasticsearch.client.transport.TransportClient
-import org.joda.time.DateTime
-import org.joda.time.DateTimeConstants
+import org.joda.time.{ DateTime, DateTimeConstants }
 import scopt.OptionParser
 
 import scala.annotation.tailrec
 import scala.concurrent.Await
 import scala.concurrent.duration._
 
-object Config {
+object PortConfig {
   val defaultSourcePort = 9300
   val defaultTargetPort = 9300
   val defaultRemotePort = 9087
 }
 
-case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer") {
-  def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
-
-  def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
-}
-
-object Client extends LazyLogging {
+object ClientActor extends LazyLogging {
 
   def formatElapsedTime(millis: Long): String = {
     val hours = MILLISECONDS.toHours(millis)
@@ -92,8 +77,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -143,52 +128,55 @@ object Client extends LazyLogging {
     logger.info(s"Creating actors for indices ${config.indices}")
     config.indices.foreach(index => {
       val actorRef = actorSystem.actorOf(
-        Props(classOf[Client], config.copy(index = index, indices = Set.empty)),
+        Props(classOf[ClientActor], config.copy(index = index, indices = Set.empty)),
         s"RemoteClient-$index"
       )
       reaper ! WatchMe(actorRef)
     })
   }
 
+  trait Factory {
+    def apply(index: String): ClientActor
+  }
+
 }
 
-class Client(config: Config) extends Actor with LazyLogging {
+class ClientActor @Inject() (cluster: Cluster, config: BaseConfig, path: ActorPath,
+  @Assisted index: String) extends Actor with LazyLogging {
 
   var scroll: SearchResponse = _
-  var cluster: TransportClient = _
   var uuid: UUID = _
   val total: AtomicLong = new AtomicLong()
 
   implicit val timeout = Timeout(120.seconds)
 
   override def preStart(): Unit = {
-    cluster = Cluster.getCluster(config.source)
-    scroll = Cluster.getScrollId(cluster, config.index)
-    logger.debug(s"Getting scroll for index ${config.index} took ${scroll.getTookInMillis}ms")
-    if (Cluster.checkIndex(cluster, config.index)) {
-      val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
+    scroll = cluster.getScrollId(index, 0)
+    logger.debug(s"Getting scroll for index ${index} took ${scroll.getTookInMillis}ms")
+    if (cluster.checkIndex(index)) {
+//      val path = s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}"
       val remote = context.actorSelection(path)
       // TODO: add handshake before start sending data, the server might not be alive and the application is not killed
       remote ! config.target.copy(totalHits = scroll.getHits.getTotalHits)
-      logger.info(s"${config.index} - Connected to remote")
+      logger.info(s"${index} - Connected to remote")
     } else {
-      logger.info(s"Invalid index ${config.index}")
+      logger.info(s"Invalid index ${index}")
       self ! PoisonPill
     }
   }
 
   override def postStop(): Unit = {
-    logger.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
+    logger.info(s"${uuid.toString} - ${index} - Requested to stop.")
     cluster.close()
   }
 
   override def receive: Actor.Receive = {
     case MORE =>
       logger.debug(s"${sender.path.name} - requesting more")
-      val hits = Cluster.scroller(config.index, scroll.getScrollId, cluster)
+      val hits = cluster.scroller(index, scroll.getScrollId)
       if (hits.nonEmpty) {
         hits.foreach(hit => {
-          val data = TransferObject(uuid, config.index, hit.getType, hit.getId, hit.getSourceAsString)
+          val data = TransferObject(uuid, index, hit.getType, hit.getId, hit.getSourceAsString)
           try {
             val serverResponse = Await.result(sender ? data, timeout.duration)
             if (data.hitId != serverResponse) {
@@ -204,12 +192,12 @@ class Client(config: Config) extends Actor with LazyLogging {
           }
         })
         val totalSent = total.addAndGet(hits.length)
-        logger.debug(s"${sender.path.name} - ${config.index} - ${
+        logger.debug(s"${sender.path.name} - ${index} - ${
           (totalSent * 100) / scroll.getHits
             .getTotalHits
         }% | Sent $totalSent of ${scroll.getHits.getTotalHits}")
       } else {
-        logger.info(s"${sender.path.name} - ${config.index} - Sending DONE")
+        logger.info(s"${sender.path.name} - ${index} - Sending DONE")
         sender ! DONE
       }
 
@@ -217,12 +205,12 @@ class Client(config: Config) extends Actor with LazyLogging {
       uuid = uuidInc
       val scrollId = scroll.getScrollId.substring(0, 10)
       logger.debug(
-        s"${sender.path.name} - ${config.index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
+        s"${sender.path.name} - ${index} - Scroll $scrollId - ${scroll.getHits.getTotalHits}"
       )
       self.forward(MORE)
 
     case other =>
-      logger.info(s"${sender.path.name} - ${config.index} - Unknown message: $other")
+      logger.info(s"${sender.path.name} - ${index} - Unknown message: $other")
   }
 
 }
