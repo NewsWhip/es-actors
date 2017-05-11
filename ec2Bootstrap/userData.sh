@@ -36,7 +36,7 @@ apt-get update
 apt_get_install sbt
 
 # Install AWS cli
-apt-get_install awscli
+apt_get_install awscli
 
 mkdir /opt/elasticsearch-migration
 cd /opt/elasticsearch-migration
