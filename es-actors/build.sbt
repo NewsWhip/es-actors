@@ -1,5 +1,4 @@
 import Settings._
-import org.scoverage.coveralls.Imports.CoverallsKeys._
 import sbt._
 
 lazy val root = project.root
@@ -46,7 +45,7 @@ lazy val server = project.from("server")
     mainClass in(Compile, run) := Some("com.broilogabriel.Server"),
     buildInfoKeys := Seq[BuildInfoKey](name, version, scalaVersion, sbtVersion),
     buildInfoPackage := Settings.defaultOrg,
-    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "2.4.1"
+    libraryDependencies += "org.elasticsearch" % "elasticsearch" % "1.7.5"
   )
 
 concurrentRestrictions in Global += Tags.limit(Tags.Test, 1)

@@ -5,13 +5,13 @@ import java.nio.file.Files
 import org.elasticsearch.action.admin.indices.refresh.RefreshResponse
 import org.elasticsearch.action.bulk.BulkResponse
 import org.elasticsearch.action.index.IndexRequest
-import org.elasticsearch.common.settings.Settings
+import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.node.NodeBuilder
 
 trait InMemoryES {
   val node = {
     val localDataDir = System.getProperty("user.dir") + "/target"
-    val settings = Settings.builder()
+    val settings = ImmutableSettings.builder()
       .put("cluster.name", "elasticsearch_embedded")
       .put("http.enabled", true)
       .put("http.port", 9200)
