@@ -9,7 +9,7 @@ apt_get_install()
         install $@
 }
 
-ES_ACTORS_VERSION=2.0.0
+ES_ACTORS_VERSION=2.0.1
 
 # Mark execution start
 echo "STARTING" > /root/user_data_run

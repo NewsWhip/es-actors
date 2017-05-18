@@ -174,6 +174,14 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
     }
   }
 
+  override def preRestart(reason: Throwable, message: Option[Any]): Unit = {
+    logger.info(s"Actor for index ${config.index} - msg: ${message.toString} is restarting because of: ", reason)
+  }
+
+  override def postRestart(reason: Throwable) : Unit = {
+    logger.info(s"Actor for index ${config.index} has restarted because of: ", reason)
+  }
+
   override def postStop(): Unit = {
     logger.info(s"${uuid.toString} - ${config.index} - Requested to stop.")
     cluster.close()
@@ -212,7 +220,10 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
           }
         } catch {
           case _@(_: TimeoutException | _: InterruptedException) =>
-            logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+            {
+              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+
+            }
           case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
         }
       })
