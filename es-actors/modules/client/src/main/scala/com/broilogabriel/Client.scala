@@ -22,7 +22,7 @@ import scala.concurrent.duration._
 object Config {
   val defaultSourcePort = 9300
   val defaultTargetPort = 9300
-  val defaultRemotePort = 9087
+  val defaultRemotePort = 9088
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
@@ -178,7 +178,7 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
     logger.info(s"Actor for index ${config.index} - msg: ${message.toString} is restarting because of: ", reason)
   }
 
-  override def postRestart(reason: Throwable) : Unit = {
+  override def postRestart(reason: Throwable): Unit = {
     logger.info(s"Actor for index ${config.index} has restarted because of: ", reason)
   }
 
