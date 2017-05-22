@@ -6,7 +6,7 @@ import java.util.UUID
 object ClusterConfig {
   //Beware of setting this variable any higher, causes memory issues in source cluster
   val scrollSize = 1000
-  val minutesAlive = 10
+  val minutesAlive = 100
   val bulkActions = 1000
   val bulkSizeMb = 1
   val flushIntervalSec = 5
