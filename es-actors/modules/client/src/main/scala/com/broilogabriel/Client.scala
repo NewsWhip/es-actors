@@ -33,13 +33,13 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer", ws: String = "",
-    ask: Boolean = false) {
+  sourceAddresses: Seq[String] = Seq("localhost"),
+  sourcePort: Int = Config.defaultPort, sourceCluster: String = "",
+  targetAddresses: Seq[String] = Seq("localhost"),
+  targetPort: Int = Config.defaultPort, targetCluster: String = "",
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+  remoteName: String = "RemoteServer", ws: String = "",
+  query: Option[String] = None, ask: Boolean = false) {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -76,7 +76,7 @@ object Client extends LazyLogging {
         None
       }
     } catch {
-      case e: IllegalArgumentException => None
+      case _: IllegalArgumentException => None
     }
   }
 
@@ -97,8 +97,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -119,6 +119,7 @@ object Client extends LazyLogging {
     opt[String]("remoteName").valueName("<remote_name>").action((x, c) => c.copy(remoteName = x))
 
     opt[String]("ws").valueName("<web_service>").action((x, c) => c.copy(ws = x))
+    opt[String]("query").valueName("<es_query>").action((x, c) => c.copy(query = Some(x)))
 
     opt[Map[String, String]]("nightly").valueName("value name to define")
       .validate(p => {

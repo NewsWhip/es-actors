@@ -32,6 +32,7 @@ lazy val client = project.from("client")
     libraryDependencies += "org.json4s" %% "json4s-native" % "3.5.1"
   )
 
+
 lazy val server = project.from("server")
   .setName("server")
   .setDescription("Server project")

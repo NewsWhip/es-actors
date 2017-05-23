@@ -34,11 +34,12 @@ object Cluster extends LazyLogging {
       .execute().actionGet().isExists
   }
 
-  def getScrollId(cluster: TransportClient, index: String, size: Int = ClusterConfig.scrollSize): SearchResponse = {
+  def getScrollId(cluster: TransportClient, index: String, query: Option[String],
+    size: Int = ClusterConfig.scrollSize): SearchResponse = {
     cluster.prepareSearch(index)
       .addSort(SortParseElement.DOC_FIELD_NAME, SortOrder.ASC)
       .setScroll(TimeValue.timeValueMinutes(ClusterConfig.minutesAlive))
-      .setQuery(QueryBuilders.matchAllQuery)
+      .setQuery(query.getOrElse(QueryBuilders.matchAllQuery().toString))
       .setSize(size)
       .execute().actionGet()
   }
