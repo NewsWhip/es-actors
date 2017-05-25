@@ -26,12 +26,12 @@ object Config {
 }
 
 case class Config(index: String = "", indices: Set[String] = Set.empty,
-    sourceAddresses: Seq[String] = Seq("localhost"),
-    sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
-    targetAddresses: Seq[String] = Seq("localhost"),
-    targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
-    remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
-    remoteName: String = "RemoteServer") {
+  sourceAddresses: Seq[String] = Seq("localhost"),
+  sourcePort: Int = Config.defaultSourcePort, sourceCluster: String = "",
+  targetAddresses: Seq[String] = Seq("localhost"),
+  targetPort: Int = Config.defaultTargetPort, targetCluster: String = "",
+  remoteAddress: String = "127.0.0.1", remotePort: Int = Config.defaultRemotePort,
+  remoteName: String = "RemoteServer") {
   def source: ClusterConfig = ClusterConfig(name = sourceCluster, addresses = sourceAddresses, port = sourcePort)
 
   def target: ClusterConfig = ClusterConfig(name = targetCluster, addresses = targetAddresses, port = targetPort)
@@ -89,8 +89,8 @@ object Client extends LazyLogging {
     opt[(String, String)]('d', "dateRange").validate(
       d => if (indicesByRange(d._1, d._2, validate = true).isDefined) success else failure("Invalid dates")
     ).action({
-        case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
-      }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
+      case ((start, end), c) => c.copy(indices = indicesByRange(start, end).get)
+    }).keyValueName("<start_date>", "<end_date>").text("Start date value should be lower than end date.")
 
     opt[Seq[String]]('s', "sources").valueName("<source_address1>,<source_address2>")
       .action((x, c) => c.copy(sourceAddresses = x)).text("default value 'localhost'")
@@ -138,6 +138,7 @@ object Client extends LazyLogging {
     val actorSystem = ActorSystem.create("MigrationClient")
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")
+    SlackUtils.sendMessageToChannel("Data transfer to analytics has begun.")
     config.indices.foreach(index => {
       val actorPath = ActorPath.fromString(s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}")
       val actorRef = actorSystem.actorOf(
@@ -178,7 +179,8 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
     logger.info(s"Actor for index ${config.index} - msg: ${message.toString} is restarting because of: ", reason)
   }
 
-  override def postRestart(reason: Throwable) : Unit = {
+  override def postRestart(reason: Throwable): Unit = {
+    SlackUtils.sendMessageToChannel(s"Data transfer to Analytics may have failed: ${reason.getMessage}")
     logger.info(s"Actor for index ${config.index} has restarted because of: ", reason)
   }
 
@@ -219,11 +221,10 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
             }, but server responded with: $serverResponse")
           }
         } catch {
-          case _@(_: TimeoutException | _: InterruptedException) =>
-            {
-              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+          case _@(_: TimeoutException | _: InterruptedException) => {
+            logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
 
-            }
+          }
           case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
         }
       })
