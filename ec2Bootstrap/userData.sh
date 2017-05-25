@@ -38,6 +38,11 @@ apt_get_install sbt
 # Install AWS cli
 apt_get_install awscli
 
+# Tag instance
+INSTANCE_ID=$(/usr/bin/wget -qO- http://instance-data/latest/meta-data/instance-id)
+
+/usr/bin/aws ec2 create-tags --region us-east-1 --resources $INSTANCE_ID --tags Key=monitored,Value=false
+
 mkdir /opt/elasticsearch-migration
 cd /opt/elasticsearch-migration
 # first setup Spike -> Analytics
