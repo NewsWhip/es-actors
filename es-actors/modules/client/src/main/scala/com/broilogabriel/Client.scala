@@ -138,7 +138,6 @@ object Client extends LazyLogging {
     val actorSystem = ActorSystem.create("MigrationClient")
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")
-    SlackUtils.sendMessageToChannel("Data transfer to analytics has begun.")
     config.indices.foreach(index => {
       val actorPath = ActorPath.fromString(s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}")
       val actorRef = actorSystem.actorOf(
@@ -180,7 +179,6 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
   }
 
   override def postRestart(reason: Throwable): Unit = {
-    SlackUtils.sendMessageToChannel(s"Data transfer to Analytics may have failed: ${reason.getMessage}")
     logger.info(s"Actor for index ${config.index} has restarted because of: ", reason)
   }
 

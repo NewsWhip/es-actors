@@ -37,7 +37,6 @@ abstract class Reaper extends Actor {
 class ProductionReaper extends Reaper with LazyLogging {
   // Shutdown
   def allSoulsReaped(): Unit = {
-    SlackUtils.sendMessageToChannel("Data transfer to Analytics has completed successfully.")
     logger.info("all done, reaping souls")
     context.system.terminate()
   }
