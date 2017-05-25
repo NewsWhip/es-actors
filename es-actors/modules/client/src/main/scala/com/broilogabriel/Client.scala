@@ -138,6 +138,7 @@ object Client extends LazyLogging {
     val actorSystem = ActorSystem.create("MigrationClient")
     val reaper = actorSystem.actorOf(Props(classOf[ProductionReaper]))
     logger.info(s"Creating actors for indices ${config.indices}")
+    SlackUtils.sendMessageToChannel("Data transfer to analytics has begun.")
     config.indices.foreach(index => {
       val actorPath = ActorPath.fromString(s"akka.tcp://MigrationServer@${config.remoteAddress}:${config.remotePort}/user/${config.remoteName}")
       val actorRef = actorSystem.actorOf(
@@ -179,6 +180,7 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
   }
 
   override def postRestart(reason: Throwable): Unit = {
+    SlackUtils.sendMessageToChannel(s"Data transfer to Analytics may have failed: ${reason.getMessage}")
     logger.info(s"Actor for index ${config.index} has restarted because of: ", reason)
   }
 
@@ -219,11 +221,10 @@ class Client(config: Config, path: ActorPath) extends Actor with LazyLogging {
             }, but server responded with: $serverResponse")
           }
         } catch {
-          case _@(_: TimeoutException | _: InterruptedException) =>
-            {
-              logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
+          case _@(_: TimeoutException | _: InterruptedException) => {
+            logger.warn(s"${sender.path.name} - Exception  awaiting for $data")
 
-            }
+          }
           case e: Exception => logger.error(s"Unexpected Exception: ${e.getMessage}")
         }
       })

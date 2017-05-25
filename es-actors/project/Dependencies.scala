@@ -24,6 +24,13 @@ object Dependencies {
   val jodaTime: ModuleID = "joda-time" % "joda-time" % "2.9.4"
   val jodaConvert: ModuleID = "org.joda" % "joda-convert" % "1.8"
 
+  // http
+  val scalaHttp = "org.scalaj" %% "scalaj-http" % "2.3.0"
+
+  // json
+  val json4sNative = "org.json4s" %% "json4s-native" % "3.5.2"
+  val json4sJackson = "org.json4s" %% "json4s-jackson" % "3.5.2"
+
   // command line
   val scopt: ModuleID = "com.github.scopt" %% "scopt" % "3.5.0"
 
@@ -48,7 +55,7 @@ trait Dependencies {
   val commonResolvers: Seq[Resolver] = resolvers
 
   val mainDeps = Seq(scalaz, scalazConcurrent, scalazContrib, scopt, logback, scalaLogging, akkaActor, akkaRemote,
-    jodaTime, jodaConvert)
+    jodaTime, jodaConvert, scalaHttp, json4sNative, json4sJackson)
 
   val testDeps = Seq(mockito, spec2, spec2Core, spec2JUnit, akkaTestkit, scalaTest)
 
