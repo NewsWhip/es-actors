@@ -13,6 +13,8 @@ TARGET_PORT="9300"
 for((i=0; i < ${#INDICES[@]}; i+=BATCHSIZE))
 do
   part=( "${INDICES[@]:i:BATCHSIZE}" )
-  echo "Running transfer for ${part[*]}"
-  sbt -J-Xmx25G -J-Xms25G "project client" "run --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS --indices=${part[*]}"
+  indices_to_transfer=${part[*]}
+  indices_to_transfer=${indices_to_transfer// /,}
+  echo "Running transfer for ${indices_to_transfer}"
+  sbt -J-Xmx25G -J-Xms25G "project client" "run --sourceCluster=$SOURCE_CLUSTER --targetCluster=$TARGET_CLUSTER --sources=$SOURCE_IPS --targets=$TARGET_IPS --indices=$indices_to_transfer"
 done

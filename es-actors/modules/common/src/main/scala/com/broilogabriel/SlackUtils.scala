@@ -5,7 +5,6 @@ import org.json4s.jackson.JsonMethods._
 
 import scalaj.http.{ Http, HttpResponse }
 
-
 object SlackUtils {
   val r2d2WebhookUrl = "https://hooks.slack.com/services/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"
 
